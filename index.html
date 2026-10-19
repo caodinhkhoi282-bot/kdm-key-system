@@ -28,7 +28,7 @@
         .btn-generate { background-color: #0066ff; color: white; border: none; border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-end; width: auto; min-width: 130px; margin-top: 10px; transition: background 0.2s; }
         .btn-generate:hover { background-color: #0052cc; }
 
-        /* NHÁNH PHỤ (Hiển thị khi xác minh vượt link thành công) */
+        /* NHÁNH PHỤ (Hiện sau khi vượt Link4M) */
         .sub-branch { display: none; margin-top: 15px; padding: 15px; background: #f8fafc; border: 1px dashed #0066ff; border-radius: 8px; }
         .sub-branch h4 { color: #2b6cb0; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .info-text { font-size: 12px; color: #718096; margin-bottom: 5px; word-break: break-all; }
@@ -93,7 +93,7 @@
                     <h4><i class="fa-solid fa-shield-halved"></i> XÁC MINH THÀNH CÔNG</h4>
                     <div class="info-text"><strong>IP:</strong> <span id="userIp">Đang tải...</span></div>
                     <div class="info-text"><strong>Device Token:</strong> <span id="userToken">Đang tạo...</span></div>
-                    <div class="info-text"><strong>Thời hạn:</strong> 24 Giờ kể từ lúc tạo</div>
+                    <div class="info-text"><strong>Thời hạn:</strong> 24 Giờ</div>
                     
                     <div class="key-display">
                         <div class="key-box" id="finalKey">Đang tạo Key...</div>
@@ -105,15 +105,15 @@
     </div>
 
     <script>
-        // ================= ĐIỀN THÔNG TIN CỦA BẠN VÀO ĐÂY =================
+        // ================= ĐÃ CẤU HÌNH THÔNG TIN CỦA BẠN =================
         const SUPABASE_URL = "https://tdzpkxtvclmwltqhlrnu.supabase.co";
         const SUPABASE_KEY = "sb_publishable_cI-bGd4IeYtdnzA76du1JA_JYVwA61M";
-        const LINK4M_URL = "https://link4m.net/7V2pQumH"; // Ví dụ: https://link4m.co/xxxx
+        const LINK4M_URL = "https://link4m.net/7V2pQumH";
         // ==================================================================
 
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // Tạo Token thiết bị duy nhất lưu ở trình duyệt
+        // Tạo Device Token độc nhất cho thiết bị
         function getDeviceToken() {
             let token = localStorage.getItem("KDM_DEVICE_TOKEN");
             if (!token) {
@@ -123,7 +123,7 @@
             return token;
         }
 
-        // Lấy địa chỉ IP người dùng
+        // Lấy địa chỉ IP
         async function getUserIP() {
             try {
                 const res = await fetch("https://api.ipify.org?format=json");
@@ -134,7 +134,7 @@
             }
         }
 
-        // Khi load trang: Kiểm tra xem người dùng từ Link4M quay về chưa
+        // Tự động kiểm tra khi tải trang
         window.onload = async function() {
             const urlParams = new URLSearchParams(window.location.search);
             const verifyTokenParam = urlParams.get('verify');
@@ -143,7 +143,6 @@
                 const savedToken = sessionStorage.getItem("KDM_VERIFY_TOKEN");
                 
                 if (verifyTokenParam === savedToken) {
-                    // Đã vượt link thành công -> Ẩn nút cũ, Mở Nhánh Phụ
                     document.getElementById("actionBtn").style.display = "none";
                     document.getElementById("subBranch").style.display = "block";
                     
@@ -153,7 +152,6 @@
                     document.getElementById("userIp").innerText = ip;
                     document.getElementById("userToken").innerText = deviceToken;
 
-                    // Tiến hành tạo Key và lưu lên Supabase
                     generateKeyToSupabase(ip, deviceToken);
                 } else {
                     alert("Phiên xác minh không hợp lệ hoặc đã hết hạn!");
@@ -161,7 +159,7 @@
             }
         };
 
-        // Khi nhấn nút Generate
+        // Khi bấm nút Generate
         function handleGetKey() {
             const verifyToken = "KDM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
             sessionStorage.setItem("KDM_VERIFY_TOKEN", verifyToken);
@@ -169,16 +167,15 @@
             const currentGitHubUrl = window.location.href.split('?')[0];
             const returnUrl = encodeURIComponent(currentGitHubUrl + "?verify=" + verifyToken);
             
-            // Chuyển hướng người dùng qua Link4M
+            // Chuyển hướng sang Link4M
             window.location.href = `${LINK4M_URL}?url=${returnUrl}`;
         }
 
-        // Tạo Key ngẫu nhiên và lưu thẳng vào Supabase với hạn 24h
+        // Tạo Key và lưu lên Supabase (Tự động hết hạn 24h)
         async function generateKeyToSupabase(ip, deviceToken) {
             const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             const generatedKey = `KDM-${randomCode}`;
 
-            // Tính mốc thời gian hết hạn sau 24 tiếng
             const now = new Date();
             const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
@@ -205,7 +202,7 @@
         function copyKey() {
             const keyText = document.getElementById("finalKey").innerText;
             navigator.clipboard.writeText(keyText);
-            alert("Đã sao chép Key thành công: " + keyText);
+            alert("Đã sao chép Key: " + keyText);
         }
     </script>
 </body>
