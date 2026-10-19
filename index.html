@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KDM TEAM - Key System</title>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f0f2f5; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        
+        .navbar { width: 100%; background: #ffffff; padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #e5e7eb; }
+        .navbar .brand { font-weight: 800; font-size: 22px; color: #1a202c; letter-spacing: 0.5px; }
+        .navbar .nav-icons { display: flex; gap: 20px; color: #4a5568; font-size: 18px; cursor: pointer; }
+
+        .container { width: 100%; max-width: 420px; margin-top: 30px; padding: 0 15px; }
+        .card { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; }
+        .card-header { padding: 15px 20px; display: flex; justify-content: flex-end; align-items: center; color: #718096; font-size: 14px; font-weight: 600; }
+        .card-header span { margin-left: 6px; }
+
+        .card-body { padding: 10px 20px 25px 20px; display: flex; flex-direction: column; gap: 16px; }
+        .input-group { display: flex; align-items: center; border: 1px solid #cbd5e0; border-radius: 8px; padding: 10px 14px; background: #ffffff; }
+        .input-group i { color: #718096; margin-right: 12px; font-size: 16px; width: 20px; text-align: center; }
+        .input-group select, .input-group input { border: none; outline: none; width: 100%; font-size: 15px; color: #2d3748; background: transparent; }
+
+        .btn-generate { background-color: #0066ff; color: white; border: none; border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-end; width: auto; min-width: 130px; margin-top: 10px; transition: background 0.2s; }
+        .btn-generate:hover { background-color: #0052cc; }
+
+        /* NHÁNH PHỤ (Chỉ hiện khi đã vượt Link4M thành công) */
+        .sub-branch { display: none; margin-top: 15px; padding: 15px; background: #f8fafc; border: 1px dashed #0066ff; border-radius: 8px; }
+        .sub-branch h4 { color: #2b6cb0; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .info-text { font-size: 12px; color: #718096; margin-bottom: 5px; word-break: break-all; }
+        .key-display { display: flex; gap: 8px; margin-top: 10px; }
+        .key-box { flex: 1; background: #edf2f7; border: 1px solid #cbd5e0; padding: 8px 12px; border-radius: 6px; font-weight: bold; font-family: monospace; color: #2d3748; font-size: 15px; text-align: center; }
+        .btn-copy { background: #38a169; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+        .btn-copy:hover { background: #2f855a; }
+    </style>
+</head>
+<body>
+
+    <!-- Header Navbar -->
+    <div class="navbar">
+        <div class="brand">KDM TEAM</div>
+        <div class="nav-icons"><i class="fa-regular fa-sun"></i><i class="fa-solid fa-bars"></i></div>
+    </div>
+
+    <!-- Main Card -->
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <i class="fa-regular fa-user"></i>
+                <span>KDM</span>
+            </div>
+
+            <div class="card-body">
+                <!-- Chọn App (Roblox) -->
+                <div class="input-group">
+                    <i class="fa-solid fa-gamepad"></i>
+                    <select id="appName">
+                        <option value="Roblox" selected>Roblox</option>
+                    </select>
+                </div>
+
+                <!-- Thiết bị -->
+                <div class="input-group">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                    <input type="text" id="deviceLimit" value="1 Thiết bị" readonly>
+                </div>
+
+                <!-- Hạn dùng -->
+                <div class="input-group">
+                    <i class="fa-regular fa-calendar-days"></i>
+                    <input type="text" id="durationDays" value="24 Giờ" readonly>
+                </div>
+
+                <!-- Loại Key (FREE) -->
+                <div class="input-group">
+                    <i class="fa-regular fa-gem"></i>
+                    <select id="keyType">
+                        <option value="FREE" selected>FREE</option>
+                    </select>
+                </div>
+
+                <!-- Nút Get Key -->
+                <button class="btn-generate" id="actionBtn" onclick="handleGetKey()">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i> Generate
+                </button>
+
+                <!-- NHÁNH PHỤ (Chỉ hiện khi xác minh vượt link thành công) -->
+                <div id="subBranch" class="sub-branch">
+                    <h4><i class="fa-solid fa-shield-halved"></i> XÁC MINH THÀNH CÔNG</h4>
+                    <div class="info-text"><strong>IP:</strong> <span id="userIp">Đang tải...</span></div>
+                    <div class="info-text"><strong>Device Token:</strong> <span id="userToken">Đang tạo...</span></div>
+                    <div class="info-text"><strong>Thời hạn:</strong> 24 Giờ</div>
+                    
+                    <div class="key-display">
+                        <div class="key-box" id="finalKey">Đang tạo Key...</div>
+                        <button class="btn-copy" onclick="copyKey()"><i class="fa-regular fa-copy"></i> Copy</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // CẤU HÌNH SUPABASE & LINK4M (Thay thông tin của bạn vào đây)
+        const SUPABASE_URL = "THAY_SUPABASE_URL_CUAN_BAN";
+        const SUPABASE_KEY = "THAY_SUPABASE_ANON_KEY_CUA_BAN";
+        const LINK4M_URL = "THAY_LINK_RUT_GON_LINK4M_CUA_BAN"; // Ví dụ: https://link4m.co/your-alias
+
+        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Tạo Device Token duy nhất lưu ở bộ nhớ trình duyệt đth
+        function getDeviceToken() {
+            let token = localStorage.getItem("KDM_DEVICE_TOKEN");
+            if (!token) {
+                token = "DEV-" + Math.random().toString(36).substring(2, 8).toUpperCase() + "-" + Date.now().toString(36).toUpperCase();
+                localStorage.setItem("KDM_DEVICE_TOKEN", token);
+            }
+            return token;
+        }
+
+        // Lấy IP người dùng
+        async function getUserIP() {
+            try {
+                const res = await fetch("https://api.ipify.org?format=json");
+                const data = await res.json();
+                return data.ip;
+            } catch {
+                return "127.0.0.1";
+            }
+        }
+
+        // Khi trang web load xong: Kiểm tra người dùng đã vượt Link4M quay về chưa
+        window.onload = async function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const verifyTokenParam = urlParams.get('verify');
+
+            // Nếu URL có tham số xác minh từ Link4M quay về
+            if (verifyTokenParam) {
+                const savedToken = sessionStorage.getItem("KDM_VERIFY_TOKEN");
+                
+                if (verifyTokenParam === savedToken) {
+                    // ĐÃ VƯỢT LINK THÀNH CÔNG -> Hiện Nhánh Phụ
+                    document.getElementById("actionBtn").style.display = "none";
+                    document.getElementById("subBranch").style.display = "block";
+                    
+                    const ip = await getUserIP();
+                    const deviceToken = getDeviceToken();
+
+                    document.getElementById("userIp").innerText = ip;
+                    document.getElementById("userToken").innerText = deviceToken;
+
+                    // Tạo Key ngẫu nhiên và lưu lên Supabase
+                    generateKeyToSupabase(ip, deviceToken);
+                } else {
+                    alert("Phiên làm việc không hợp lệ hoặc đã hết hạn!");
+                }
+            }
+        };
+
+        // Khi người dùng bấm nút Generate
+        function handleGetKey() {
+            // Tạo 1 mã token phiên làm việc ngẫu nhiên
+            const verifyToken = "KDM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
+            sessionStorage.setItem("KDM_VERIFY_TOKEN", verifyToken);
+
+            // Tự lấy URL hiện tại của GitHub Pages
+            const currentGitHubUrl = window.location.href.split('?')[0];
+            const returnUrl = encodeURIComponent(currentGitHubUrl + "?verify=" + verifyToken);
+            
+            // Chuyển hướng người dùng qua Link4M
+            window.location.href = `${LINK4M_URL}?url=${returnUrl}`;
+        }
+
+        // Tạo Key lưu vào Supabase (hạn 24h)
+        async function generateKeyToSupabase(ip, deviceToken) {
+            const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const generatedKey = `KDM-${randomCode}`;
+
+            const now = new Date();
+            const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+            const { data, error } = await supabase
+                .from('keys')
+                .insert([
+                    { 
+                        key_code: generatedKey, 
+                        app_name: "Roblox", 
+                        ip_address: ip,
+                        device_token: deviceToken,
+                        expires_at: expiresAt
+                    }
+                ]);
+
+            if (error) {
+                console.error("Lỗi Supabase:", error);
+                document.getElementById("finalKey").innerText = "LỖI TẠO KEY";
+            } else {
+                document.getElementById("finalKey").innerText = generatedKey;
+            }
+        }
+
+        function copyKey() {
+            const keyText = document.getElementById("finalKey").innerText;
+            navigator.clipboard.writeText(keyText);
+            alert("Đã sao chép Key thành công: " + keyText);
+        }
+    </script>
+</body>
+</html>
