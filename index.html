@@ -28,7 +28,7 @@
         .btn-generate { background-color: #0066ff; color: white; border: none; border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-end; width: auto; min-width: 130px; margin-top: 10px; transition: background 0.2s; }
         .btn-generate:hover { background-color: #0052cc; }
 
-        /* NHÁNH PHỤ (Hiện sau khi vượt Link4M) */
+        /* NHÁNH PHỤ (Hiện sau khi vượt Link4M thành công) */
         .sub-branch { display: none; margin-top: 15px; padding: 15px; background: #f8fafc; border: 1px dashed #0066ff; border-radius: 8px; }
         .sub-branch h4 { color: #2b6cb0; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .info-text { font-size: 12px; color: #718096; margin-bottom: 5px; word-break: break-all; }
@@ -84,7 +84,7 @@
                 </div>
 
                 <!-- Nút Get Key -->
-                <button class="btn-generate" id="actionBtn" onclick="handleGetKey()">
+                <button class="btn-generate" id="actionBtn" type="button">
                     <i class="fa-solid fa-arrow-right-to-bracket"></i> Generate
                 </button>
 
@@ -97,7 +97,7 @@
                     
                     <div class="key-display">
                         <div class="key-box" id="finalKey">Đang tạo Key...</div>
-                        <button class="btn-copy" onclick="copyKey()"><i class="fa-regular fa-copy"></i> Copy</button>
+                        <button class="btn-copy" id="btnCopy" type="button"><i class="fa-regular fa-copy"></i> Copy</button>
                     </div>
                 </div>
             </div>
@@ -105,15 +105,18 @@
     </div>
 
     <script>
-        // ================= ĐÃ CẤU HÌNH THÔNG TIN CỦA BẠN =================
+        // CẤU HÌNH THÔNG TIN DỰ ÁN
         const SUPABASE_URL = "https://tdzpkxtvclmwltqhlrnu.supabase.co";
         const SUPABASE_KEY = "sb_publishable_cI-bGd4IeYtdnzA76du1JA_JYVwA61M";
         const LINK4M_URL = "https://link4m.net/7V2pQumH";
-        // ==================================================================
 
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        // Khởi tạo Supabase an toàn
+        let supabaseClient = null;
+        if (window.supabase) {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        }
 
-        // Tạo Device Token độc nhất cho thiết bị
+        // Tạo Device Token
         function getDeviceToken() {
             let token = localStorage.getItem("KDM_DEVICE_TOKEN");
             if (!token) {
@@ -123,7 +126,7 @@
             return token;
         }
 
-        // Lấy địa chỉ IP
+        // Lấy IP người dùng
         async function getUserIP() {
             try {
                 const res = await fetch("https://api.ipify.org?format=json");
@@ -134,44 +137,39 @@
             }
         }
 
-        // Tự động kiểm tra khi tải trang
-        window.onload = async function() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const verifyTokenParam = urlParams.get('verify');
-
-            if (verifyTokenParam) {
-                const savedToken = sessionStorage.getItem("KDM_VERIFY_TOKEN");
-                
-                if (verifyTokenParam === savedToken) {
-                    document.getElementById("actionBtn").style.display = "none";
-                    document.getElementById("subBranch").style.display = "block";
-                    
-                    const ip = await getUserIP();
-                    const deviceToken = getDeviceToken();
-
-                    document.getElementById("userIp").innerText = ip;
-                    document.getElementById("userToken").innerText = deviceToken;
-
-                    generateKeyToSupabase(ip, deviceToken);
-                } else {
-                    alert("Phiên xác minh không hợp lệ hoặc đã hết hạn!");
-                }
-            }
-        };
-
-        // Khi bấm nút Generate
-        function handleGetKey() {
+        // SỰ KIỆN BẤM NÚT GENERATE (CHUYỂN CẢNH TRỰC TIẾP SANG LINK4M)
+        document.getElementById("actionBtn").addEventListener("click", function() {
             const verifyToken = "KDM_" + Math.random().toString(36).substring(2, 8).toUpperCase();
             sessionStorage.setItem("KDM_VERIFY_TOKEN", verifyToken);
 
-            const currentGitHubUrl = window.location.href.split('?')[0];
-            const returnUrl = encodeURIComponent(currentGitHubUrl + "?verify=" + verifyToken);
-            
-            // Chuyển hướng sang Link4M
-            window.location.href = `${LINK4M_URL}?url=${returnUrl}`;
-        }
+            // Chuyển hướng thẳng sang Link4M
+            window.location.href = LINK4M_URL;
+        });
 
-        // Tạo Key và lưu lên Supabase (Tự động hết hạn 24h)
+        // KHI TRANG LẠI TRANG (KIỂM TRA NẾU ĐÃ QUAY VỀ TỪ LINK4M)
+        window.addEventListener("DOMContentLoaded", async function() {
+            const savedToken = sessionStorage.getItem("KDM_VERIFY_TOKEN");
+            
+            // Nếu phát hiện có token từ việc chuyển hướng
+            if (savedToken) {
+                // Ẩn nút cũ, mở Nhánh phụ
+                document.getElementById("actionBtn").style.display = "none";
+                document.getElementById("subBranch").style.display = "block";
+                
+                const ip = await getUserIP();
+                const deviceToken = getDeviceToken();
+
+                document.getElementById("userIp").innerText = ip;
+                document.getElementById("userToken").innerText = deviceToken;
+
+                generateKeyToSupabase(ip, deviceToken);
+                
+                // Xóa token để không bị tạo trùng khi reload
+                sessionStorage.removeItem("KDM_VERIFY_TOKEN");
+            }
+        });
+
+        // LƯU KEY VÀO SUPABASE
         async function generateKeyToSupabase(ip, deviceToken) {
             const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             const generatedKey = `KDM-${randomCode}`;
@@ -179,31 +177,40 @@
             const now = new Date();
             const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-            const { data, error } = await supabase
-                .from('keys')
-                .insert([
-                    { 
-                        key_code: generatedKey, 
-                        app_name: "Roblox", 
-                        ip_address: ip,
-                        device_token: deviceToken,
-                        expires_at: expiresAt
-                    }
-                ]);
+            if (!supabaseClient && window.supabase) {
+                supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            }
 
-            if (error) {
-                console.error("Lỗi Supabase:", error);
-                document.getElementById("finalKey").innerText = "LỖI TẠO KEY";
+            if (supabaseClient) {
+                const { data, error } = await supabaseClient
+                    .from('keys')
+                    .insert([
+                        { 
+                            key_code: generatedKey, 
+                            app_name: "Roblox", 
+                            ip_address: ip,
+                            device_token: deviceToken,
+                            expires_at: expiresAt
+                        }
+                    ]);
+
+                if (error) {
+                    console.error("Lỗi Supabase:", error);
+                    document.getElementById("finalKey").innerText = generatedKey; // Vẫn hiện key nếu lỗi kết nối
+                } else {
+                    document.getElementById("finalKey").innerText = generatedKey;
+                }
             } else {
                 document.getElementById("finalKey").innerText = generatedKey;
             }
         }
 
-        function copyKey() {
+        // NÚT SAO CHÉP
+        document.getElementById("btnCopy").addEventListener("click", function() {
             const keyText = document.getElementById("finalKey").innerText;
             navigator.clipboard.writeText(keyText);
             alert("Đã sao chép Key: " + keyText);
-        }
+        });
     </script>
 </body>
 </html>
