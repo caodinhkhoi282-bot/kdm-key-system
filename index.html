@@ -28,7 +28,7 @@
         .btn-generate { background-color: #0066ff; color: white; border: none; border-radius: 8px; padding: 12px; font-size: 15px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; align-self: flex-end; width: auto; min-width: 130px; margin-top: 10px; transition: background 0.2s; }
         .btn-generate:hover { background-color: #0052cc; }
 
-        /* NHÁNH PHỤ (Hiện sau khi vượt Link4M) */
+        /* NHÁNH PHỤ (Hiện sau khi vượt link thành công) */
         .sub-branch { display: none; margin-top: 15px; padding: 15px; background: #f8fafc; border: 1px dashed #0066ff; border-radius: 8px; }
         .sub-branch h4 { color: #2b6cb0; font-size: 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .info-text { font-size: 12px; color: #718096; margin-bottom: 5px; word-break: break-all; }
@@ -63,6 +63,15 @@
                     </select>
                 </div>
 
+                <!-- Lựa chọn Task vượt link (Link4M / Linkvertise) -->
+                <div class="input-group">
+                    <i class="fa-solid fa-list-check"></i>
+                    <select id="taskChoice">
+                        <option value="link4m" selected>Link4M</option>
+                        <option value="linkvertise">Linkvertise</option>
+                    </select>
+                </div>
+
                 <!-- Thiết bị -->
                 <div class="input-group">
                     <i class="fa-solid fa-mobile-screen-button"></i>
@@ -75,20 +84,12 @@
                     <input type="text" id="durationDays" value="24 Giờ" readonly>
                 </div>
 
-                <!-- Loại Key -->
-                <div class="input-group">
-                    <i class="fa-regular fa-gem"></i>
-                    <select id="keyType">
-                        <option value="FREE" selected>FREE</option>
-                    </select>
-                </div>
-
                 <!-- Nút Get Key -->
                 <button class="btn-generate" id="actionBtn" type="button">
                     <i class="fa-solid fa-arrow-right-to-bracket"></i> Generate
                 </button>
 
-                <!-- NHÁNH PHỤ (Hiện sau khi vượt Link4M) -->
+                <!-- NHÁNH PHỤ (Hiện sau khi vượt link) -->
                 <div id="subBranch" class="sub-branch">
                     <h4><i class="fa-solid fa-shield-halved"></i> XÁC MINH THÀNH CÔNG</h4>
                     <div class="info-text"><strong>IP:</strong> <span id="userIp">Đang tải...</span></div>
@@ -107,7 +108,12 @@
     <script>
         const SUPABASE_URL = "https://tdzpkxtvclmwltqhlrnu.supabase.co";
         const SUPABASE_KEY = "sb_publishable_cI-bGd4IeYtdnzA76du1JA_JYVwA61M";
-        const LINK4M_URL = "https://link4m.net/7V2pQumH";
+        
+        // Cấu hình link cho từng nhà cung cấp nhiệm vụ
+        const LINKS = {
+            "link4m": "https://link4m.net/7V2pQumH",
+            "linkvertise": "https://direct-link.net/10588120/BcoDfQ9oVjmv"
+        };
 
         let supabaseClient = null;
         if (window.supabase) {
@@ -133,27 +139,32 @@
             }
         }
 
-        // 1. KHI BẤM NÚT GENERATE
+        // 1. BẤM NÚT GENERATE
         document.getElementById("actionBtn").addEventListener("click", function() {
-            // Lưu đánh dấu vào Session của trình duyệt trước khi rời trang
+            const selectedTask = document.getElementById("taskChoice").value;
+            const targetProviderUrl = LINKS[selectedTask];
+
             sessionStorage.setItem("KDM_PENDING_VERIFY", "true");
 
             const currentUrl = window.location.href.split('?')[0];
             const targetUrl = encodeURIComponent(currentUrl + "?status=success");
             
-            // Chuyển hướng tới Link4M
-            window.location.href = `${LINK4M_URL}?url=${targetUrl}`;
+            // Nếu là Link4M thì truyền thêm parameter, nếu Linkvertise thì chuyển trực tiếp
+            if (selectedTask === "link4m") {
+                window.location.href = `${targetProviderUrl}?url=${targetUrl}`;
+            } else {
+                window.location.href = targetProviderUrl;
+            }
         });
 
-        // 2. KHI TRANG LOAD LẠI (Kiểm tra nếu vừa quay về từ Link4M)
+        // 2. KHI KIỂM TRA TRANG (Quay về từ vượt link)
         window.addEventListener("DOMContentLoaded", async function() {
             const urlParams = new URLSearchParams(window.location.search);
             const hasSuccessParam = urlParams.get('status') === 'success';
             const isPending = sessionStorage.getItem("KDM_PENDING_VERIFY") === "true";
 
-            // Kích hoạt Nhánh phụ nếu có tham số thành công HOẶC có cờ pending
             if (hasSuccessParam || isPending) {
-                sessionStorage.removeItem("KDM_PENDING_VERIFY"); // Xóa cờ tạm
+                sessionStorage.removeItem("KDM_PENDING_VERIFY");
 
                 document.getElementById("actionBtn").style.display = "none";
                 document.getElementById("subBranch").style.display = "block";
@@ -164,12 +175,11 @@
                 document.getElementById("userIp").innerText = ip;
                 document.getElementById("userToken").innerText = deviceToken;
 
-                // Tiến hành tạo Key và đẩy lên Supabase
                 generateKeyToSupabase(ip, deviceToken);
             }
         });
 
-        // 3. HÀM TẠO KEY VÀ LƯU VÀO SUPABASE (TỰ ĐỘNG HẾT HẠN 24H)
+        // 3. TẠO KEY VÀ ĐẨY SUPABASE
         async function generateKeyToSupabase(ip, deviceToken) {
             const randomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
             const generatedKey = `KDM-${randomCode}`;
@@ -182,7 +192,7 @@
             }
 
             if (supabaseClient) {
-                const { data, error } = await supabaseClient
+                const { error } = await supabaseClient
                     .from('keys')
                     .insert([
                         { 
@@ -199,11 +209,10 @@
                 }
             }
 
-            // Hiển thị Key ra giao diện người dùng
             document.getElementById("finalKey").innerText = generatedKey;
         }
 
-        // 4. XỬ LÝ NÚT COPY KEY
+        // 4. SAO CHÉP KEY
         document.getElementById("btnCopy").addEventListener("click", function() {
             const keyText = document.getElementById("finalKey").innerText;
             if (keyText && keyText !== "Đang tạo Key...") {
